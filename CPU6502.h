@@ -4,7 +4,7 @@
 
 class CPU6502
 {
-private:
+public:
 
 	enum flags {
 		Negative = 0x80,
@@ -23,7 +23,7 @@ private:
 		SYNC = 0x10,
 	};
 
-	uint8_t Cycles = 0;
+	
 	uint8_t Opcode_id = 0x00;
 	//CPU main ragistar
 	uint8_t A_reg;
@@ -139,6 +139,8 @@ private:
 	}
 public:
 
+	uint8_t Cycles = 0;
+
 	CPU6502(BUS* main_bus) :bus(main_bus), A_reg(0x00), X_reg(0x00), Y_reg(0x00), PC(0x00), SP(0xff), SR(0x00) {}
 	CPU6502(): A_reg(0x00), X_reg(0x00), Y_reg(0x00), PC(0x00), SP(0xff), SR(0x00) {}
 	//the cpu read form memory location    FFFC, FFFD to feel the Program Coutner value
@@ -171,7 +173,6 @@ public:
 		std::cout << "Interrupt flage : " << ((SR & Interrupt) == Interrupt) << "\n";
 		std::cout << "Zero flage      : " << ((SR & Zero) == Zero) << "\n";
 		std::cout << "Carry flage     : " << ((SR & Carry) == Carry) << "\n" << "\n";
-
 	}
 };
 

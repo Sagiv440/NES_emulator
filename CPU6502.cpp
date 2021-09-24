@@ -65,7 +65,7 @@ void CPU6502::Execute()
 {
 	if (Cycles == 0) {
 		Opcode_id = load_Opcode();
-		std::cout << "Opcode: " << list[Opcode_id].name << " loaded  Value: " << std::hex << (uint16_t)Opcode_id << "\n";
+		//std::cout << "Opcode: " << list[Opcode_id].name << " loaded  Value: " << std::hex << (uint16_t)Opcode_id << "\n";
 		Cycles = list[Opcode_id].Cycles;
 		uint8_t address_func = (this->*list[Opcode_id].address)();
 		uint8_t Opcode_func = (this->*list[Opcode_id].opcode)();
@@ -74,7 +74,8 @@ void CPU6502::Execute()
 		set_Control_pin(SYNC, 1);
 	}
 	else {
-		Cycles -= 1;
+		Cycles--;
+		set_Control_pin(SYNC, 0);
 		//delay
 	}
 }
@@ -223,8 +224,15 @@ uint8_t CPU6502::Ind()
 
 	address = ((uint16_t)high << 8) | low;
 
-	low = load_data(address);
-	high = load_data(address + 1);
+	if (address == 0x00ff)  // Simulate page boundary hardware bug
+	{
+		low = load_data(address);
+		high = load_data(address & 0xff00);
+	}
+	else {
+		low = load_data(address);
+		high = load_data(address + 1);
+	}
 
 	data_point = ((uint16_t)high << 8) | low;
 	return 0;
@@ -233,8 +241,8 @@ uint8_t CPU6502::Inx()
 {
 	address = load_Opcode();
 
-	low = load_data((address + X_reg) & 0x00FF);
-	high = load_data((address + X_reg + 1) & 0x00FF);
+	low  = load_data((address + (uint16_t)X_reg) & 0x00FF);
+	high = load_data((address + (uint16_t)X_reg + 1) & 0x00FF);
 
 	data_point = ((uint16_t)high << 8) | low;
 	return 0;
@@ -243,8 +251,8 @@ uint8_t CPU6502::Iny()
 {
 	address = load_Opcode();
 
-	low = load_data((address + X_reg) & 0x00FF);
-	high = load_data((address + X_reg + 1) & 0x00FF);
+	low  = load_data((address + (uint16_t)Y_reg) & 0x00FF);
+	high = load_data((address + (uint16_t)Y_reg + 1) & 0x00FF);
 
 	data_point = ((uint16_t)high << 8) | low;
 	return 0;
@@ -269,7 +277,7 @@ uint8_t CPU6502::AND()
 	sum = A_reg & load_data(data_point);
 	A_reg = (uint8_t)sum;
 
-	set_flag(Zero, (A_reg != 0));
+	set_flag(Zero, (A_reg == 0));
 	set_flag(Negative, ((A_reg & 0x80) != 0));
 	return 0;
 }
@@ -342,7 +350,7 @@ uint8_t CPU6502::BEQ()
 uint8_t CPU6502::BIT() 
 {
 	low = A_reg & load_data(data_point);
-	set_flag(Zero, low);
+	set_flag(Zero, low == 0);
 	set_flag(Overflow, ((low & 0x40) != 0));
 	set_flag(Negative, ((low & 0x80) != 0));
 	return 0; 
@@ -726,7 +734,10 @@ uint8_t CPU6502::RTS()
 }
 uint8_t CPU6502::SBC() 
 { 
-	sum = (uint16_t)A_reg - load_data(data_point) - (uint16_t)get_flag(Carry);
+	low = load_data(data_point);
+	address = (uint16_t)low ^ 0x00ff;
+
+	sum = (uint16_t)A_reg + address + (uint16_t)get_flag(Carry);
 
 	set_flag(Carry, (sum & 0x100) != 0);
 	set_flag(Zero, ((uint8_t)sum == 0));
@@ -740,7 +751,8 @@ uint8_t CPU6502::SBC()
 uint8_t CPU6502::SEC() 
 { 
 
-	return 0; 
+	set_flag(Carry, 1);
+	return 0;
 }
 uint8_t CPU6502::SED() 
 { 

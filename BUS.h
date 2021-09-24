@@ -65,13 +65,14 @@ public:
 		if (!f.is_open())
 			return ;
 		char line[128];
+
 		std::strstream s;
 		uint16_t address;
 		uint8_t low, high;
-
-
+		for (int i = 0; i < 128; i++) {
+			line[i] = 0x0;
+		}
 		f.getline(line, 128);
-		s << line;
 		for (int i = 0; i < 4; i++)
 		{
 			if (line[i] <= '9' && line[i] >= '0')
@@ -101,8 +102,10 @@ public:
 
 		while (!f.eof())
 		{
+			for (int i = 0; i < 128; i++) {
+				line[i] = 0x0;
+			}
 			f.getline(line, 128);
-			s << line;
 			for (int i = 5; i < 53; i += 3)
 			{
 				if (line[i] != '\n') {
