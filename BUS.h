@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <strstream>
+#include "cartridge.h"
 
 class module
 {
@@ -130,14 +131,22 @@ public:
 	}
 };
 
-struct BUS
+class BUS
 {
+public:
 	uint8_t     CONTRL_BUS;
 	uint8_t     DATA_BUS;
 	uint16_t    ADDRESS_BUS;
-	module**    Priferals;
 	int count = 0;
+public:
+	virtual void load(){};
+	virtual void save(){};
+	virtual void interrupt(){};
+};
 
+class BASIC_BUS : public BUS
+{
+	module**    Priferals;
 	void load()
 	{
 		if (Priferals == nullptr) {
@@ -194,6 +203,131 @@ struct BUS
 			}
 		}
 		std::cout << "SYSTEM::BUS::INTERRUPT_ERROR::ON_MODUALS_EXZIST_IN_ADDRESS: " << std::hex << ADDRESS_BUS << "\n";
+	}
+};
+
+class NES_BUS : public BUS
+{
+private:
+	mapper* map;
+	module* ppu;
+	uint8_t memory[0x0800] = {0x00}; // 2k ram
+
+public:
+	void set_mapper(mapper* MP) {map = MP;};
+	void set_ppu(module* PPU) {ppu = PPU;};
+
+	void load()
+	{
+		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		{
+			DATA_BUS = memory[0x07FF & ADDRESS_BUS];
+		}
+		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x4000) //PPU registers
+		{
+			DATA_BUS = ppu->send_data(ADDRESS_BUS);
+		}
+		else if(ADDRESS_BUS >= 0x4000 && ADDRESS_BUS < 0x4018) //APU registers
+		{
+			DATA_BUS = 0; //place holder
+		}
+		else if(ADDRESS_BUS >= 0x4018 && ADDRESS_BUS < 0x401F) //IO registers
+		{
+			DATA_BUS = 0; //place holder
+		}
+		else	//Cartidge
+		{
+			DATA_BUS = map->cpu_load(&ADDRESS_BUS);
+		}
+	}
+	void save()
+	{
+		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		{
+			memory[0x07FF & ADDRESS_BUS] = DATA_BUS;
+		}
+		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x4000) //PPU registers
+		{
+			 ppu->receive_data(ADDRESS_BUS, DATA_BUS);
+		}
+		else if(ADDRESS_BUS >= 0x4000 && ADDRESS_BUS < 0x4018) //APU registers
+		{
+			 //place holder
+		}
+		else if(ADDRESS_BUS >= 0x4018 && ADDRESS_BUS < 0x401F) //IO registers
+		{
+			 //place holder
+		}
+		else	//Cartidge
+		{
+			map->cpu_save(&ADDRESS_BUS, DATA_BUS);
+		}
+	}
+	void interrupt()
+	{
+		
+	}
+};
+class PPU_BUS : public BUS
+{
+private:
+	mapper* map;
+	uint8_t VRAM[0x0800] = {0x00}; // 2k ram
+	uint8_t palette_ROM[0x0800] = {0x00}; // 2k ram
+
+	
+public:
+	void set_mapper(mapper* MP) {map = MP;};
+	
+	void load()
+	{
+		if(ADDRESS_BUS < 0x2000) //Pattern table 0 and 1
+		{
+			DATA_BUS = map->ppu_load(&ADDRESS_BUS);
+		}
+		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x3000) //nametable ram
+		{
+			DATA_BUS = VRAM[0x07FF & ADDRESS_BUS];
+		}
+		else if(ADDRESS_BUS >= 0x3000 && ADDRESS_BUS < 0x3F00) //Mirror
+		{
+			DATA_BUS = 0; //place holder
+		}
+		else if(ADDRESS_BUS >= 0x3F00 && ADDRESS_BUS < 4000) //Palette_Memory
+		{
+			DATA_BUS = palette_ROM[0x001F & ADDRESS_BUS];
+		}
+		else	
+		{
+			//?
+		}
+	}
+	void save()
+	{
+		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		{
+			map->ppu_save(&ADDRESS_BUS, DATA_BUS);
+		}
+		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x3000) //Nametable memory
+		{
+			 VRAM[0x07FF & ADDRESS_BUS] = DATA_BUS;
+		}
+		else if(ADDRESS_BUS >= 0x3000 && ADDRESS_BUS < 0x3F00) //Mirror
+		{
+			 //place holder
+		}
+		else if(ADDRESS_BUS >= 0x3F00 && ADDRESS_BUS < 0x4000) //IO registers
+		{
+			DATA_BUS = palette_ROM[0x001F & ADDRESS_BUS];
+		}
+		else	//Cartidge
+		{
+			//?
+		}
+	}
+	void interrupt()
+	{
+		
 	}
 };
 

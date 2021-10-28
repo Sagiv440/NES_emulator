@@ -1,5 +1,5 @@
 #include "CPU6502.h"
-
+#include "BUS.h"
 
 
 void CPU6502::irq()

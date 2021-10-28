@@ -10,4 +10,11 @@ file(GLOB_RECURSE HEADER_FILES
         ${CMAKE_SOURCE_DIR}/*.h
         ${CMAKE_SOURCE_DIR}/*.hpp)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_library(CPU6502 CPU6502.cpp)
+add_library(PPU PPU.cpp)
+add_library(cartridge cartridge.cpp)
+add_library(mapper mapper.cpp)
+
+add_executable(${PROJECT_NAME} main.cpp )
+
+target_link_libraries(${PROJECT_NAME} cartridge CPU6502 PPU mapper)

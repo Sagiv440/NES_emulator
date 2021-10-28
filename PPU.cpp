@@ -1,6 +1,6 @@
 #include "PPU.h"
 
-NES_PPU::NES_PPU(uint16_t top = 0xffff, uint16_t buttom = 0x0000, BUS* module_bus = NULL)
+NES_PPU::NES_PPU(uint16_t top = 0x4000, uint16_t buttom = 0x2000, BUS* module_bus = NULL)
 {
 	TOP_ADDRESS = top;
 	BUTTOM_ADDRESS = buttom;
