@@ -66,12 +66,16 @@ class NES_PPU : public module
 	uint8_t X_cam = 0x00;
 	uint8_t Y_cam = 0x00;
 
+	uint8_t x_axes = 0x00;
+	uint8_t y_axes = 0xFF;
 	uint8_t OAM_memory[0x100] = { 0x00 };
 
 	uint8_t* screen_buffer;
 
 	void save_data(uint16_t address, uint8_t &data);
 	uint8_t load_data(uint16_t address);
+
+	void set_Status(uint8_t Status, uint8_t state);
 
 	void pattern(uint8_t &P);
 
@@ -84,7 +88,7 @@ class NES_PPU : public module
 public:
 	 
 
-	NES_PPU(uint16_t top, uint16_t buttom, BUS* module_bus);
+	NES_PPU(uint16_t top = 0x4000, uint16_t buttom = 0x2000);
 	~NES_PPU();
 
 	void Rest();
@@ -92,11 +96,8 @@ public:
 	void Scroling();
 	void Rendering();
 
-	void set_bus(BUS* main_bus)
-	{
-		bus = main_bus;
-	}
-
+	void set_bus(BUS* main_bus){bus = main_bus;}
+	uint8_t* get_screen_buffer(){return screen_buffer;}
 	uint8_t send_data(uint16_t& address);
 	void receive_data(uint16_t& address, uint8_t& data);
 	void interrupt(uint8_t& contrl);
