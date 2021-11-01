@@ -7,12 +7,13 @@
 class module
 {
 public:
+	uint8_t*	INTERRUPTS;
 	uint16_t    TOP_ADDRESS;
 	uint16_t    BUTTOM_ADDRESS;
 
 
-	virtual uint8_t send_data(uint16_t& address) { return 0; };
-	virtual void receive_data(uint16_t& address, uint8_t& data) {};
+	virtual uint8_t send_data(uint16_t* address) { return 0; };
+	virtual void receive_data(uint16_t* address, uint8_t& data) {};
 	virtual void interrupt(uint8_t& contrl) {};
 };
 
@@ -134,16 +135,25 @@ public:
 class BUS
 {
 public:
-	uint8_t     CONTRL_BUS;
-	uint8_t     DATA_BUS;
-	uint16_t    ADDRESS_BUS;
+	uint8_t     CONTRL_BUS = 0;
+	uint8_t     DATA_BUS = 0;
+	uint16_t    ADDRESS_BUS = 0;
 	int count = 0;
 public:
-	virtual void load(){};
-	virtual void save(){};
+	virtual void load(uint16_t &address){};
+	virtual void save(uint16_t &address){};
 	virtual void interrupt(){};
+	uint8_t Inspact(uint16_t address)
+	{
+		uint8_t OLD = DATA_BUS;
+		uint8_t NEW;
+		load(address);
+		NEW = DATA_BUS;
+		DATA_BUS = OLD;
+		return NEW;
+	}
 };
-
+/*
 class BASIC_BUS : public BUS
 {
 	module**    Priferals;
@@ -205,7 +215,7 @@ class BASIC_BUS : public BUS
 		std::cout << "SYSTEM::BUS::INTERRUPT_ERROR::ON_MODUALS_EXZIST_IN_ADDRESS: " << std::hex << ADDRESS_BUS << "\n";
 	}
 };
-
+*/
 class NES_BUS : public BUS
 {
 private:
@@ -215,52 +225,56 @@ private:
 
 public:
 	void set_mapper(mapper* MP) {map = MP;};
-	void set_ppu(module* PPU) {ppu = PPU;};
-
-	void load()
+	void set_ppu(module* PPU) 
 	{
-		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		ppu = PPU; 
+		ppu->INTERRUPTS = &CONTRL_BUS;
+	};
+
+	void load(uint16_t &address)
+	{
+		if(address < 0x2000) //mirrord 2k memory
 		{
-			DATA_BUS = memory[0x07FF & ADDRESS_BUS];
+			DATA_BUS = memory[0x07FF & address];
 		}
-		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x4000) //PPU registers
+		else if(address >= 0x2000 && address < 0x4000) //PPU registers
 		{
-			DATA_BUS = ppu->send_data(ADDRESS_BUS);
+			DATA_BUS = ppu->send_data(&address);
 		}
-		else if(ADDRESS_BUS >= 0x4000 && ADDRESS_BUS < 0x4018) //APU registers
+		else if(address >= 0x4000 && address < 0x4018) //APU registers
 		{
-			DATA_BUS = 0; //place holder
+			DATA_BUS = 0; //place holder 
 		}
-		else if(ADDRESS_BUS >= 0x4018 && ADDRESS_BUS < 0x401F) //IO registers
+		else if(address >= 0x4018 && address < 0x401F) //IO registers
 		{
 			DATA_BUS = 0; //place holder
 		}
 		else	//Cartidge
 		{
-			DATA_BUS = map->cpu_load(&ADDRESS_BUS);
+			DATA_BUS = map->cpu_load(&address);
 		}
 	}
-	void save()
+	void save(uint16_t &address)
 	{
-		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		if(address < 0x2000) //mirrord 2k memory
 		{
-			memory[0x07FF & ADDRESS_BUS] = DATA_BUS;
+			memory[0x07FF & address] = DATA_BUS;
 		}
-		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x4000) //PPU registers
+		else if(address >= 0x2000 && address < 0x4000) //PPU registers
 		{
-			 ppu->receive_data(ADDRESS_BUS, DATA_BUS);
+			 ppu->receive_data(&address, DATA_BUS);
 		}
-		else if(ADDRESS_BUS >= 0x4000 && ADDRESS_BUS < 0x4018) //APU registers
+		else if(address >= 0x4000 && address < 0x4018) //APU registers
 		{
 			 //place holder
 		}
-		else if(ADDRESS_BUS >= 0x4018 && ADDRESS_BUS < 0x401F) //IO registers
+		else if(address >= 0x4018 && address < 0x401F) //IO registers
 		{
 			 //place holder
 		}
 		else	//Cartidge
 		{
-			map->cpu_save(&ADDRESS_BUS, DATA_BUS);
+			map->cpu_save(&address, DATA_BUS);
 		}
 	}
 	void interrupt()
@@ -279,46 +293,46 @@ private:
 public:
 	void set_mapper(mapper* MP) {map = MP;};
 	
-	void load()
+	void load(uint16_t &address)
 	{
-		if(ADDRESS_BUS < 0x2000) //Pattern table 0 and 1
+		if(address < 0x2000) //Pattern table 0 and 1
 		{
-			DATA_BUS = map->ppu_load(&ADDRESS_BUS);
+			DATA_BUS = map->ppu_load(&address);
 		}
-		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x3000) //nametable ram
+		else if(address >= 0x2000 && address < 0x3000) //nametable ram
 		{
-			DATA_BUS = VRAM[0x07FF & ADDRESS_BUS];
+			DATA_BUS = VRAM[0x07FF & address];
 		}
-		else if(ADDRESS_BUS >= 0x3000 && ADDRESS_BUS < 0x3F00) //Mirror
+		else if(address >= 0x3000 && address < 0x3F00) //Mirror
 		{
 			DATA_BUS = 0; //place holder
 		}
-		else if(ADDRESS_BUS >= 0x3F00 && ADDRESS_BUS < 4000) //Palette_Memory
+		else if(address >= 0x3F00 && address < 0x4000) //Palette_Memory
 		{
-			DATA_BUS = palette_ROM[0x001F & ADDRESS_BUS];
+			DATA_BUS = palette_ROM[0x001F & address];
 		}
 		else	
 		{
 			//?
 		}
 	}
-	void save()
+	void save(uint16_t &address)
 	{
-		if(ADDRESS_BUS < 0x2000) //mirrord 2k memory
+		if(address < 0x2000) //mirrord 2k memory
 		{
-			map->ppu_save(&ADDRESS_BUS, DATA_BUS);
+			map->ppu_save(&address, DATA_BUS);
 		}
-		else if(ADDRESS_BUS >= 0x2000 && ADDRESS_BUS < 0x3000) //Nametable memory
+		else if(address >= 0x2000 && address < 0x3000) //Nametable memory
 		{
-			 VRAM[0x07FF & ADDRESS_BUS] = DATA_BUS;
+			 VRAM[0x07FF & address] = DATA_BUS;
 		}
-		else if(ADDRESS_BUS >= 0x3000 && ADDRESS_BUS < 0x3F00) //Mirror
+		else if(address >= 0x3000 && address < 0x3F00) //Mirror
 		{
 			 //place holder
 		}
-		else if(ADDRESS_BUS >= 0x3F00 && ADDRESS_BUS < 0x4000) //IO registers
+		else if(address >= 0x3F00 && address < 0x4000) //IO registers
 		{
-			DATA_BUS = palette_ROM[0x001F & ADDRESS_BUS];
+			palette_ROM[0x001F & address] = DATA_BUS;
 		}
 		else	//Cartidge
 		{

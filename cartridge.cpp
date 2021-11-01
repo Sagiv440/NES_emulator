@@ -49,8 +49,9 @@ cartridge::cartridge(const char* rom_file)
         rf.read((char*) &CHR_memory[0x2000 * c], 0x2000);
     }
 
-    std::cout << Print_memory(0, 0x4000 * Header[4] ,PGR_memory);
+    std::cout << Print_memory(0, 0x4000 * Header[4] ,PGR_memory).c_str();
     //std::cout << Print_memory(0, 0x2000 * Header[5] ,CHR_memory);
+    std::cout << "\n";
  
 }
 cartridge::~cartridge()

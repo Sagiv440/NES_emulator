@@ -45,6 +45,12 @@ void CPU6502::nmi()
 
 	PC = (uint16_t)high << 8 | low;
 }
+
+void CPU6502::Chack_Interupt()
+{
+	
+}
+
 void CPU6502::Rest()
 {
 	
@@ -64,13 +70,27 @@ void CPU6502::Rest()
 void CPU6502::Execute()
 {
 	if (Cycles == 0) {
-		Opcode_id = load_Opcode();
-		//std::cout << "Opcode: " << list[Opcode_id].name << " loaded  Value: " << std::hex << (uint16_t)Opcode_id << "\n";
-		Cycles = list[Opcode_id].Cycles;
-		uint8_t address_func = (this->*list[Opcode_id].address)();
-		uint8_t Opcode_func = (this->*list[Opcode_id].opcode)();
-
-		Cycles += (address_func + Opcode_func);
+		//chack interupt
+		if((bus->CONTRL_BUS & NMI) != 0)
+		{
+			nmi();
+			bus->CONTRL_BUS &= ~NMI;
+			Cycles = 6;
+		}
+		else if((bus->CONTRL_BUS & IRQ))
+		{
+			irq();
+			bus->CONTRL_BUS &= ~IRQ;
+			Cycles = 6;
+		}
+		else
+		{
+			Opcode_id = load_Opcode();
+			Cycles = list[Opcode_id].Cycles;
+			uint8_t address_func = (this->*list[Opcode_id].address)();
+			uint8_t Opcode_func = (this->*list[Opcode_id].opcode)();
+			Cycles += (address_func + Opcode_func);
+		}
 		set_Control_pin(SYNC, 1);
 	}
 	else {
@@ -82,15 +102,15 @@ void CPU6502::Execute()
 
 void CPU6502::save_data(uint16_t address, uint8_t data)
 {
-	bus->ADDRESS_BUS = address;
+	//bus->ADDRESS_BUS = address;
 	bus->DATA_BUS = data;
-	bus->save();
+	bus->save(address);
 }
 
 uint8_t CPU6502::load_data(uint16_t address)
 {
-	bus->ADDRESS_BUS = address;
-	bus->load();
+	//bus->ADDRESS_BUS = address;
+	bus->load(address);
 	return bus->DATA_BUS;
 }
 uint8_t CPU6502::load_data(uint8_t low_address, uint8_t high_address)
@@ -103,8 +123,8 @@ uint8_t CPU6502::load_data(uint8_t low_address, uint8_t high_address, uint8_t& r
 }
 uint8_t CPU6502::load_Opcode()
 {
-	bus->ADDRESS_BUS = PC;
-	bus->load();
+	//bus->ADDRESS_BUS = PC;
+	bus->load(PC);
 	PC += 1;
 	return bus->DATA_BUS;
 }

@@ -55,9 +55,18 @@ class NES_PPU : public module
 						// evaluation and cleared at dot 1 (the second dot) of the
 						// pre - render line.
 	};
+	enum contrl_lines {
+		R_W = 0x80,
+		IRQ = 0x40,
+		NMI = 0x20,
+		SYNC = 0x10,
+	};
 
 	BUS* bus;
+	uint8_t *CONTRL_BUS;
 	uint8_t w_1 = 0x00;
+	uint16_t address_buffer;
+
 	uint8_t control = 0x00;
 	uint8_t mask = 0x00;
 	uint8_t status = 0x00;
@@ -77,16 +86,18 @@ class NES_PPU : public module
 
 	void set_Status(uint8_t Status, uint8_t state);
 
-	void pattern(uint8_t &P);
+	
 
 	// Incharge of rendering the background frame
 	void BG_render();
 
 	//Incharge of rendering the Sprites in the farme
 	void FG_render();
+
+	void Print_Pallte();
 	
 public:
-	 
+	void pattern(uint8_t &P);
 
 	NES_PPU(uint16_t top = 0x4000, uint16_t buttom = 0x2000);
 	~NES_PPU();
@@ -97,9 +108,10 @@ public:
 	void Rendering();
 
 	void set_bus(BUS* main_bus){bus = main_bus;}
+	void set_Interupt();
 	uint8_t* get_screen_buffer(){return screen_buffer;}
-	uint8_t send_data(uint16_t& address);
-	void receive_data(uint16_t& address, uint8_t& data);
+	uint8_t send_data(uint16_t* address);
+	void receive_data(uint16_t* address, uint8_t& data);
 	void interrupt(uint8_t& contrl);
 
 
