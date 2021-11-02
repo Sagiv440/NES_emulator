@@ -66,7 +66,7 @@ class NES_PPU : public module
 	uint8_t *CONTRL_BUS;
 	uint8_t w_1 = 0x00;
 	uint16_t address_buffer;
-
+	uint8_t ready = 0x00;
 	uint8_t control = 0x00;
 	uint8_t mask = 0x00;
 	uint8_t status = 0x00;
@@ -85,6 +85,13 @@ class NES_PPU : public module
 	uint8_t load_data(uint16_t address);
 
 	void set_Status(uint8_t Status, uint8_t state);
+	void addressing_mode()
+	{
+		if ((control & VRAM_A) != 0)
+			D_address += 32;
+		else
+			D_address++;
+	}
 
 	
 
@@ -97,6 +104,8 @@ class NES_PPU : public module
 	void Print_Pallte();
 	
 public:
+	void set_Ready();
+	uint8_t Ready();
 	void pattern(uint8_t &P);
 
 	NES_PPU(uint16_t top = 0x4000, uint16_t buttom = 0x2000);

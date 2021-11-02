@@ -11,9 +11,9 @@ void CPU6502::irq()
 		high = (uint8_t)((PC - 1) >> 8);
 
 		//Store return address in and State register in the stack;
-		save_data(0x0100 | SP, low);
-		SP--;
 		save_data(0x0100 | SP, high);
+		SP--;
+		save_data(0x0100 | SP, low);
 		SP--;
 		save_data(0x0100 | SP, SR);
 		SP--;
@@ -32,9 +32,9 @@ void CPU6502::nmi()
 	high = (uint8_t)((PC - 1) >> 8);
 
 	//Store return address in and State register in the stack;
-	save_data(0x0100 | SP, low);
-	SP--;
 	save_data(0x0100 | SP, high);
+	SP--;
+	save_data(0x0100 | SP, low);
 	SP--;
 	save_data(0x0100 | SP, SR);
 	SP--;
@@ -169,6 +169,7 @@ void CPU6502::Overflow_flag(uint8_t &reg, uint8_t result)
 	set_flag(Overflow, ((reg & 0x80) ^ (result & 0x80)) != 0);
 }
 
+//Immpemintation of the Addresssing cpu addressing mode.
 
 uint8_t CPU6502::Imp() { return 0; }
 uint8_t CPU6502::Acc()
@@ -220,10 +221,7 @@ uint8_t CPU6502::Abx()
 
 	data_point = ((uint16_t)high << 8 | low) + X_reg;
 
-	if (((PC & 0xff00) + low) > 0xff) //when the address jumps bitween two pages
-		return 1;
-	else
-		return 0;
+	return ((data_point & 0xFF00) != (high << 8)) ? 1 : 0; //when the address jumps bitween two pages
 }
 uint8_t CPU6502::Aby()
 {
@@ -232,10 +230,7 @@ uint8_t CPU6502::Aby()
 
 	data_point = ((uint16_t)high << 8 | low) + Y_reg;
 
-	if (((PC & 0xff00) + low) > 0xff) //when the address jumps bitween two pages
-		return 1;
-	else
-		return 0;
+	return ((data_point & 0xFF00) != (high << 8)) ? 1 : 0; //when the address jumps bitween two pages
 }
 uint8_t CPU6502::Ind()
 {
@@ -271,11 +266,13 @@ uint8_t CPU6502::Iny()
 {
 	address = load_Opcode();
 
-	low  = load_data((address + (uint16_t)Y_reg) & 0x00FF);
-	high = load_data((address + (uint16_t)Y_reg + 1) & 0x00FF);
+	low  = load_data((address) & 0x00FF);
+	high = load_data((address + 1) & 0x00FF);
 
 	data_point = ((uint16_t)high << 8) | low;
-	return 0;
+	data_point += Y_reg;
+
+	return ((data_point & 0xFF00) != (high << 8)) ? 1 : 0; //when the address jumps bitween two pages
 }
 
 

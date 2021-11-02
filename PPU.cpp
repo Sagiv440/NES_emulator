@@ -40,7 +40,7 @@ uint8_t NES_PPU::send_data(uint16_t* address)
 
 	case PPUDATA:
 		st = load_data(D_address);
-		D_address++;
+		addressing_mode();
 		return st;
 		break;
 
@@ -110,7 +110,7 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 	case PPUDATA:
 		save_data(D_address, data);
 		w_1 = 0;
-		D_address++;
+		addressing_mode();
 		break;
 
 	case OAMDMA:
@@ -149,6 +149,15 @@ void NES_PPU::set_Status(uint8_t Status, uint8_t state)
 	{
 		status = status | Status;
 	}
+}
+
+uint8_t NES_PPU::Ready()
+{
+	return ready;
+}
+void NES_PPU::set_Ready()
+{
+	ready = 0;
 }
 
 void NES_PPU::set_Interupt()
@@ -191,6 +200,7 @@ void NES_PPU::Execute()  //only render the background "for now"
 		{	
 			set_Status(V_Blank, 1);
 			set_Interupt();
+			ready = 1;
 		}
 	}
 
