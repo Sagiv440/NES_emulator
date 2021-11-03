@@ -175,16 +175,93 @@ void NES_PPU::pattern(uint8_t &P)
 		p0 = load_data((uint16_t)P * 8 + y);
 		p1 = load_data((uint16_t)P * 8 + y + 0x0800);
 		for (uint8_t x; x < 8; x++) {
-			pixel =   (p0 & (0xfe << x)) != 0;
-			pixel += ((p1 & (0xfe << x)) != 0)? 2:0 ;
-
+			pixel =   (p0 & (0x80 >> x)) != 0;
+			pixel += ((p1 & (0x80 >> x)) != 0)? 2:0 ;
 		}
 	}
 }
 
 void NES_PPU::BG_render()
 {
+	uint8_t pallet_x = (uint8_t)(0.125f * (float)x_axes); // Calculating the x position for the pallet corisponding with the pixel.
+	uint8_t pallet_y = (uint8_t)(0.125f * (float)y_axes); // Calculating the y position for the pallet corisponding with the pixel.
 
+	uint8_t attribute_x = (uint8_t)(0.03125f * (float)x_axes);
+	uint8_t attribute_y = (uint8_t)(0.03125f * (float)y_axes);
+
+	//reading nametable pallet form memory
+
+	uint16_t NTaddress = 0x2000 + 0x0400 * (control & 0x03); // selete the Name table
+	NTaddress += (pallet_x + (32 * pallet_y));	// set the pallet offset
+
+	uint8_t Pattern = load_data(NTaddress);
+
+
+	//reading attriblute form memory
+
+	uint16_t ATaddress = 0x23C0 + 0x0400 * (control & 0x03); 	// selete the Attrebute table
+	ATaddress += (attribute_x + (8 * attribute_y));				// set the Attrebute offset
+
+	uint8_t Pallet = load_data(ATaddress);
+
+	//load Pattern register
+	uint16_t AP0 = ((y_axes % 8) + (uint16_t)(Pattern << 4)); 			// calculate the address for Pattern 0 register
+	uint16_t AP1 = ((y_axes % 8) + (uint16_t)(Pattern << 4)) + 8; 	// calculate the address for Pattern 1 register
+	uint8_t P0 = 0;
+	uint8_t P1 = 0;
+	if ((control & B_P) != B_P)
+	{
+		P0 = load_data(AP0); // Load Pattern 0 register
+		P1 = load_data(AP1); // Load Pattern 1 register
+	}
+	else
+	{
+		P0 = load_data(AP0 + 0x1000); // Load Pattern 0 register
+		P1 = load_data(AP1 + 0x1000); // Load Pattern 1 register
+	}
+
+	//get the pixel ID
+
+	uint8_t pixel_id = 0;
+	
+	pixel_id += (P0 & (0x80 >> (x_axes % 8))) != 0 ? 1 : 0;
+	pixel_id += (P1 & (0x80 >> (x_axes % 8))) != 0 ? 2 : 0;
+	
+
+	//get color set 
+
+	uint8_t CPset_x = pallet_x % 2;
+	uint8_t CPset_y = pallet_y % 2;
+	uint8_t CP_pos = CPset_x + (CPset_y * 2);
+	uint8_t CP_set = 0;
+
+	switch (CP_pos)
+	{
+	case 0:
+		CP_set = Pallet & (0x03);
+		break;
+	case 1:
+		CP_set = Pallet >> 2;
+		CP_set = CP_set & (0x03);
+		break;
+	case 2:
+		CP_set = Pallet >> 4;
+		CP_set = CP_set & (0x03);
+		break;
+	case 3:
+		CP_set = Pallet >> 6;
+		CP_set = CP_set & (0x03);
+		break;
+	}
+
+	//Get the pixel color
+
+	uint16_t PCaddress = 0x3F00 + pixel_id + (4 * CP_set);
+	uint8_t pixel = load_data(PCaddress);
+
+	//Write the pixel to the buffer
+
+	screen_buffer[x_axes + (256 * y_axes)] = pixel;
 }
 
 void NES_PPU::FG_render()
@@ -208,75 +285,8 @@ void NES_PPU::Execute()  //only render the background "for now"
 	// Scroling
 	// Rendering
 	if(y_axes < 240){
-		uint8_t pallet_x = (uint8_t)(0.125f * (float)x_axes); // Calculating the x position for the pallet corisponding with the pixel.
-		uint8_t pallet_y = (uint8_t)(0.125f * (float)y_axes); // Calculating the y position for the pallet corisponding with the pixel.
-
-		uint8_t attribute_x = (uint8_t)(0.03125f * (float)x_axes);
-		uint8_t attribute_y = (uint8_t)(0.03125f * (float)y_axes);
-
-		//reading nametable pallet form memory
-
-		uint16_t NTaddress = 0x2000 + 0x0400 *(control & 0x03); // selete the Name table
-		NTaddress += (pallet_x + (32 * pallet_y));	// set the pallet offset
-
-		uint8_t Pattern = load_data(NTaddress);
-
-
-		//reading attriblute form memory
-
-		uint16_t ATaddress = 0x23C0 + 0x0400 *(control & 0x03); 	// selete the Attrebute table
-		ATaddress += (attribute_x + (8 * attribute_y));				// set the Attrebute offset
-
-		uint8_t Pallet = load_data(ATaddress);
-
-		//load Pattern register
-
-		uint16_t AP0 = ((y_axes%8) + (uint16_t)Pattern * 8); 			// calculate the address for Pattern 0 register
-		uint16_t AP1 = ((y_axes%8) + (uint16_t)Pattern * 8) & 0x1000; 	// calculate the address for Pattern 1 register
-
-		uint8_t P0 = load_data(AP0); // Load Pattern 0 register
-		uint8_t P1 = load_data(AP1); // Load Pattern 1 register
-
-		//get the pixel ID
-
-		uint8_t pixel_id = 0;
-		pixel_id = (P0 & (0x01 << (x_axes%8))) ? 1 : 0;
-		pixel_id += (P1 & (0x01 << (x_axes%8))) ? 2 : 0;
-
-		//get color set 
-
-		uint8_t CPset_x = pallet_x%2;
-		uint8_t CPset_y = pallet_y%2;
-		uint8_t CP_pos = CPset_x + CPset_y * 2;
-		uint8_t CP_set = 0;
-		
-		switch(CP_pos)
-		{
-			case 0:
-				CP_set = Pallet & (0x03);
-				break;
-			case 1:
-				CP_set = Pallet & (0x0C);
-				CP_set = CP_set >> 2;
-				break;
-			case 2:
-				CP_set = Pallet & (0x30);
-				CP_set = CP_set >> 4;
-				break;
-			case 3:
-				CP_set = Pallet & (0xC0);
-				CP_set = CP_set >> 6;
-				break;
-		}
-
-		//Get the pixel color
-
-		uint16_t PCaddress = 0x3F00 + pixel_id + (4 * CP_set);
-		//uint8_t pixel = load_data(PCaddress);
-		uint8_t pixel = pixel_id;
-		//Write the pixel to the buffer
-
-		screen_buffer[x_axes + (256 * y_axes)] = pixel;
+		BG_render();
+		FG_render();
 	}
 	x_axes += 1;
 
