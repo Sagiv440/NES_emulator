@@ -6,6 +6,8 @@ NES_PPU::NES_PPU(uint16_t top, uint16_t buttom)
 	BUTTOM_ADDRESS = buttom;
 
 	screen_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
+	back_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
+	frant_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
 
 };
 NES_PPU::~NES_PPU() { delete(screen_buffer); };
@@ -75,6 +77,7 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 
 	case OAMDATA:
 		OAM_memory[OAM_address] = data;
+		OAM_address++;
 		w_1 = 0;
 		break;
 
@@ -134,7 +137,6 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 	// Address ($2006) >> write x2
 	// Data ($2007) <> read/write
 	// OAM DMA ($4014) > write
-
 
 }
 void NES_PPU::interrupt(uint8_t& contrl) {};
@@ -260,13 +262,86 @@ void NES_PPU::BG_render()
 	uint8_t pixel = load_data(PCaddress);
 
 	//Write the pixel to the buffer
-
+	
+	back_buffer[x_axes + (256 * y_axes)] = pixel_id;
 	screen_buffer[x_axes + (256 * y_axes)] = pixel;
 }
 
 void NES_PPU::FG_render()
 {
+	uint8_t x_pos, y_pos, attr, tile, CP_set, pixel_id, pixel;
 
+	uint16_t AP0 = 0;
+	uint16_t AP1 = 0;
+	uint16_t PCaddress;
+
+	uint8_t P0 = 0;
+	uint8_t P1 = 0;
+
+	uint8_t y_new, x_new;
+
+	for(uint8_t s = 0; s < 64; s++)
+	{
+		y_pos = OAM_memory[s*4];
+		tile = 	OAM_memory[s*4 + 1];
+		attr = OAM_memory[s*4 + 2];
+		x_pos = OAM_memory[s*4 + 3];
+
+		CP_set = 0x03 & attr;
+		
+		for(uint8_t y = 0 ; y < 8; y++ ){
+			if(attr & 0x80 == 0){ // check if the horizontal flip is valid and ajust pattern poiner
+				y_new = 7 - y;
+			}else{
+				y_new = y;
+			}
+			AP0 = (y_new + (uint16_t)(tile << 4)); 			// calculate the address for Pattern 0 register
+			AP1 = (y_new + (uint16_t)(tile << 4)) + 8; 	// calculate the address for Pattern 1 register
+			
+			if ((control & B_P) == 0)
+			{
+				AP0 = AP0 + 0x1000;
+				AP1 = AP0 + 0x1000;
+			}
+			P0 = load_data(AP0); // Load Pattern 0 register
+			P1 = load_data(AP1); // Load Pattern 1 register
+			if((control & S_S) != S_S){
+				for(uint8_t x = 0;x < 8; x++ ){
+					/*if(attr & 0x80 == 0){ // check if the vertical flip is valid and ajust pattern poiner
+						x_new = 7 - x;
+					}else{
+						x_new = x;
+					}*/
+
+					x_new = (attr & 0x40) != 0x40? x : 7 - x;
+
+					if((uint16_t)x_pos + x < 256 && y_pos + y < 240){
+						pixel_id = 0;
+						pixel_id += (P0 & (0x80 >> x_new)) != 0 ? 1 : 0;
+						pixel_id += (P1 & (0x80 >> x_new)) != 0 ? 2 : 0;
+						if(attr & 0x20 != 0)
+						{
+							if(pixel_id != 0 )
+							{
+								PCaddress = 0x3F10 + pixel_id + (4 * CP_set);
+								pixel = load_data(PCaddress);
+								screen_buffer[(x_pos + x) + (y_pos + y)*256] = pixel;
+							}
+						}else{
+							if(back_buffer[(x_pos + x) + (y_pos + y)*256] == 0 && pixel_id != 0)
+							{
+								PCaddress = 0x3F10 + pixel_id + (4 * CP_set);
+								pixel = load_data(PCaddress);
+								screen_buffer[(x_pos + x) + (y_pos + y)*256] = pixel;
+							}
+						}
+					}
+				}
+			}
+		}
+
+
+	}
 }
 
 void NES_PPU::Execute()  //only render the background "for now"
@@ -275,6 +350,7 @@ void NES_PPU::Execute()  //only render the background "for now"
 		y_axes += 1;
 		if(y_axes == 240)
 		{	
+			FG_render();
 			set_Status(V_Blank, 1);
 			set_Interupt();
 			ready = 1;
@@ -286,7 +362,7 @@ void NES_PPU::Execute()  //only render the background "for now"
 	// Rendering
 	if(y_axes < 240){
 		BG_render();
-		FG_render();
+		//FG_render();
 	}
 	x_axes += 1;
 

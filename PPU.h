@@ -79,7 +79,9 @@ class NES_PPU : public module
 	uint8_t y_axes = 0xFF;
 	uint8_t OAM_memory[0x100] = { 0x00 };
 
-	uint8_t* screen_buffer;
+	uint8_t* screen_buffer; // Holld the color id for the final frame
+	uint8_t* back_buffer; 
+	uint8_t* frant_buffer;
 
 	void save_data(uint16_t address, uint8_t &data);
 	uint8_t load_data(uint16_t address);
