@@ -16,6 +16,7 @@ void cartridge::set_mapper(uint8_t type)
     }
 }
 
+
 uint8_t cartridge::map_index()
 {
     uint8_t high,low;
@@ -35,6 +36,9 @@ cartridge::cartridge(const char* rom_file)
     CHR_memory = (uint8_t*)malloc(sizeof(uint8_t) * 0x2000 * Header[5]); // Allocating memory for the graphics rom
 
     set_mapper(map_index()); //set the correct mapper;
+    mirror = (Header[6] & 0x08) > 0? 1:0;
+    mirror = (mirror << 1) | (Header[6] & 0x01);
+
 
     if(Header[6] & 0x04){ // If trainer exsist load trainer to ram;
         rf.read((char*) &Map->Ram[0x1000], 512);
@@ -49,7 +53,8 @@ cartridge::cartridge(const char* rom_file)
         rf.read((char*) &CHR_memory[0x2000 * c], 0x2000);
     }
 
-    std::cout << Print_memory(0, 0x4000 * Header[4] ,PGR_memory).c_str();
+    //std::cout << Print_memory(0, 0x4000 * Header[4] ,PGR_memory).c_str();
+    //std::cout << Print_memory(0, 0x2000 ,PGR_memory);
     //std::cout << Print_memory(0, 0x2000 * Header[5] ,CHR_memory);
     std::cout << "\n";
  

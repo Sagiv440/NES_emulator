@@ -17,4 +17,20 @@ add_library(mapper mapper.cpp)
 
 add_executable(${PROJECT_NAME} main.cpp )
 
-target_link_libraries(${PROJECT_NAME} cartridge CPU6502 PPU mapper)
+target_include_directories(${PROJECT_NAME}
+    PUBLIC ${SOURCE_DIR}
+    PUBLIC SFML/include
+)
+
+target_link_directories(${PROJECT_NAME}
+    PUBLIC SFML/lib
+)
+
+target_link_libraries(${PROJECT_NAME} 
+	cartridge 
+	CPU6502 PPU 
+	mapper
+	sfml-graphics
+    	sfml-window
+    	sfml-system
+)

@@ -13,6 +13,46 @@ int main()
 }*/
 #include <SFML/Graphics.hpp>
 
+uint8_t Input()
+{
+    uint8_t buttons = 0;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
+    {
+        buttons |= 0x80;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
+    {
+        buttons |= 0x40;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
+    {
+        buttons |= 0x20;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
+    {
+        buttons |= 0x10;
+    }
+     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter))
+    {
+        buttons |= 0x08;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num0))
+    {
+        buttons |= 0x04;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+    {
+        buttons |= 0x02;
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+    {
+        buttons |= 0x01;
+    }
+    //buttons |= 0x04;
+    return buttons;
+}
+
+
 int main()
 {
     uint8_t R ,G ,B ,A;
@@ -22,6 +62,8 @@ int main()
     shape.setFillColor(sf::Color::Green);
     NES nes("donkey kong.nes");
 	nes.On_start();
+    nes.set_controller(0,*Input);
+    //nes.set_controller(1,*Input);
     while (window.isOpen())
     {
         sf::Event event;

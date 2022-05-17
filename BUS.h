@@ -221,10 +221,12 @@ class NES_BUS : public BUS
 private:
 	mapper* map;
 	module* ppu;
+	module* IO;
 	uint8_t memory[0x0800] = {0x00}; // 2k ram
 
 public:
 	void set_mapper(mapper* MP) {map = MP;};
+	void set_IO(module* IO_ports) {IO = IO_ports;};
 	void set_ppu(module* PPU) 
 	{
 		ppu = PPU; 
@@ -243,7 +245,7 @@ public:
 		}
 		else if(address >= 0x4000 && address < 0x4018) //APU registers
 		{
-			DATA_BUS = 0; //place holder 
+			DATA_BUS = IO->send_data(&address);
 		}
 		else if(address >= 0x4018 && address < 0x401F) //IO registers
 		{
@@ -266,7 +268,7 @@ public:
 		}
 		else if(address >= 0x4000 && address < 0x4018) //APU registers
 		{
-			 //place holder
+			 IO->receive_data(&address, DATA_BUS);
 		}
 		else if(address >= 0x4018 && address < 0x401F) //IO registers
 		{

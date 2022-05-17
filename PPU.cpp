@@ -6,9 +6,6 @@ NES_PPU::NES_PPU(uint16_t top, uint16_t buttom)
 	BUTTOM_ADDRESS = buttom;
 
 	screen_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
-	back_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
-	frant_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
-
 };
 NES_PPU::~NES_PPU() { delete(screen_buffer); };
 
@@ -32,6 +29,7 @@ uint8_t NES_PPU::send_data(uint16_t* address)
 	{
 	case PPUSTATUS:
 		st = status;
+		w_1 = 0;
 		set_Status(V_Blank, 0); //Clear Vertical blank bit after reading the status register
 		return st;
 		break;
@@ -41,7 +39,7 @@ uint8_t NES_PPU::send_data(uint16_t* address)
 		break;
 
 	case PPUDATA:
-		st = load_data(D_address);
+		st = load_data(vram_addr.reg);
 		addressing_mode();
 		return st;
 		break;
@@ -62,23 +60,21 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 	{
 	case PPUCTRL:
 		control = data;
-		w_1 = 0;
+		tram_addr.nametable_x = (control & Ctrl::NTABLE_X) > 0;
+		tram_addr.nametable_y = (control & Ctrl::NTABLE_Y) > 0;
 		break;
 
 	case PPUMASK:
 		mask = data;
-		w_1 = 0;
 		break;
 
 	case OAMADDR:
 		OAM_address = data;
-		w_1 = 0;
 		break;
 
 	case OAMDATA:
 		OAM_memory[OAM_address] = data;
 		OAM_address++;
-		w_1 = 0;
 		break;
 
 	case PPUSCROLL:
@@ -86,13 +82,15 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 		if (w_1 == 0)
 		{
 			//Change the cam_X position
-			X_cam = data;
+			fine_x = data & 0x07;
+			tram_addr.coarse_x = data >> 3;
 			w_1 = 1;
 		}
 		else
 		{
 			//Change the cam_Y position
-			Y_cam = data;
+			tram_addr.fine_y = data & 0x07;
+			tram_addr.coarse_y = data >> 3;
 			w_1 = 0;
 		}
 		break;
@@ -100,31 +98,24 @@ void NES_PPU::receive_data(uint16_t *address, uint8_t& data)
 	case PPUADDR:
 		if (w_1 == 0)
 		{
-			address_buffer = (uint16_t)data << 8;
+			tram_addr.reg = (uint16_t)((data & 0x3F) << 8) | (tram_addr.reg & 0x00ff);
 			w_1 = 1;
 		}
 		else
 		{
-			D_address = address_buffer | data;
+			tram_addr.reg = (tram_addr.reg & 0xff00) | (uint16_t)data ;
+			vram_addr.reg = tram_addr.reg;
 			w_1 = 0;
 		}
 		break;
 
 	case PPUDATA:
-		save_data(D_address, data);
-		w_1 = 0;
+		save_data(vram_addr.reg, data);
 		addressing_mode();
 		break;
 
-	case OAMDMA:
-
-		//Activate_DMA_protocol
-
-		w_1 = 0;
-		break;
-
 	default:
-		w_1 = 0;
+		std::cout << "ERROR::PPU::WRITE_DATA WRITE DATA TO A NONE VALID RGISTER " << std::hex << (int)(*address & 0x0007) << "\n";
 		break;
 	}
 
@@ -183,198 +174,188 @@ void NES_PPU::pattern(uint8_t &P)
 	}
 }
 
-void NES_PPU::BG_render()
-{
-	uint8_t pallet_x = (uint8_t)(0.125f * (float)x_axes); // Calculating the x position for the pallet corisponding with the pixel.
-	uint8_t pallet_y = (uint8_t)(0.125f * (float)y_axes); // Calculating the y position for the pallet corisponding with the pixel.
+/*
+uint8_t fine_x;
+uint8_t fine_y;
+uint8_t x_pattorn;
+uint8_t y_pattorn;
 
-	uint8_t attribute_x = (uint8_t)(0.03125f * (float)x_axes);
-	uint8_t attribute_y = (uint8_t)(0.03125f * (float)y_axes);
-
-	//reading nametable pallet form memory
-
-	uint16_t NTaddress = 0x2000 + 0x0400 * (control & 0x03); // selete the Name table
-	NTaddress += (pallet_x + (32 * pallet_y));	// set the pallet offset
-
-	uint8_t Pattern = load_data(NTaddress);
-
-
-	//reading attriblute form memory
-
-	uint16_t ATaddress = 0x23C0 + 0x0400 * (control & 0x03); 	// selete the Attrebute table
-	ATaddress += (attribute_x + (8 * attribute_y));				// set the Attrebute offset
-
-	uint8_t Pallet = load_data(ATaddress);
-
-	//load Pattern register
-	uint16_t AP0 = ((y_axes % 8) + (uint16_t)(Pattern << 4)); 			// calculate the address for Pattern 0 register
-	uint16_t AP1 = ((y_axes % 8) + (uint16_t)(Pattern << 4)) + 8; 	// calculate the address for Pattern 1 register
-	uint8_t P0 = 0;
-	uint8_t P1 = 0;
-	if ((control & B_P) != B_P)
-	{
-		P0 = load_data(AP0); // Load Pattern 0 register
-		P1 = load_data(AP1); // Load Pattern 1 register
+uint16_t NTbyte;
+uint16_t ATbyte;
+uint8_t BG_low;
+uint8_t BG_hight;
+*/
+void NES_PPU::inc_horizontal(){
+	if(((mask&BG_ON) == BG_ON) || ((mask&SP_ON) == SP_ON)){
+		if(vram_addr.coarse_x == 31){
+			vram_addr.coarse_x = 0;
+			vram_addr.nametable_x = ~vram_addr.nametable_x;
+		}else{
+			vram_addr.reg += 1;
+		}
 	}
-	else
-	{
-		P0 = load_data(AP0 + 0x1000); // Load Pattern 0 register
-		P1 = load_data(AP1 + 0x1000); // Load Pattern 1 register
-	}
-
-	//get the pixel ID
-
-	uint8_t pixel_id = 0;
-	
-	pixel_id += (P0 & (0x80 >> (x_axes % 8))) != 0 ? 1 : 0;
-	pixel_id += (P1 & (0x80 >> (x_axes % 8))) != 0 ? 2 : 0;
-	
-
-	//get color set 
-
-	uint8_t CPset_x = pallet_x % 2;
-	uint8_t CPset_y = pallet_y % 2;
-	uint8_t CP_pos = CPset_x + (CPset_y * 2);
-	uint8_t CP_set = 0;
-
-	switch (CP_pos)
-	{
-	case 0:
-		CP_set = Pallet & (0x03);
-		break;
-	case 1:
-		CP_set = Pallet >> 2;
-		CP_set = CP_set & (0x03);
-		break;
-	case 2:
-		CP_set = Pallet >> 4;
-		CP_set = CP_set & (0x03);
-		break;
-	case 3:
-		CP_set = Pallet >> 6;
-		CP_set = CP_set & (0x03);
-		break;
-	}
-
-	//Get the pixel color
-
-	uint16_t PCaddress = 0x3F00 + pixel_id + (4 * CP_set);
-	uint8_t pixel = load_data(PCaddress);
-
-	//Write the pixel to the buffer
-	
-	back_buffer[x_axes + (256 * y_axes)] = pixel_id;
-	screen_buffer[x_axes + (256 * y_axes)] = pixel;
 }
 
-void NES_PPU::FG_render()
-{
-	uint8_t x_pos, y_pos, attr, tile, CP_set, pixel_id, pixel;
+void NES_PPU::inc_vertical(){
+	if(((mask&BG_ON) == BG_ON) || ((mask&SP_ON) == SP_ON)){
+		if(vram_addr.fine_y < 7){
+			vram_addr.fine_y += 1;
+		}else{
+			vram_addr.fine_y = 0;
+			if(vram_addr.coarse_y == 29){
 
-	uint16_t AP0 = 0;
-	uint16_t AP1 = 0;
-	uint16_t PCaddress;
-
-	uint8_t P0 = 0;
-	uint8_t P1 = 0;
-
-	uint8_t y_new, x_new;
-
-	for(uint8_t s = 0; s < 64; s++)
-	{
-		y_pos = OAM_memory[s*4];
-		tile = 	OAM_memory[s*4 + 1];
-		attr = OAM_memory[s*4 + 2];
-		x_pos = OAM_memory[s*4 + 3];
-
-		CP_set = 0x03 & attr;
-		
-		for(uint8_t y = 0 ; y < 8; y++ ){
-			if(attr & 0x80 == 0){ // check if the horizontal flip is valid and ajust pattern poiner
-				y_new = 7 - y;
+				vram_addr.coarse_y = 0;
+				vram_addr.nametable_y = ~vram_addr.nametable_y;
+			}else if(vram_addr.coarse_y == 31){
+				vram_addr.coarse_y = 0;
 			}else{
-				y_new = y;
-			}
-			AP0 = (y_new + (uint16_t)(tile << 4)); 			// calculate the address for Pattern 0 register
-			AP1 = (y_new + (uint16_t)(tile << 4)) + 8; 	// calculate the address for Pattern 1 register
-			
-			if ((control & B_P) == 0)
-			{
-				AP0 = AP0 + 0x1000;
-				AP1 = AP0 + 0x1000;
-			}
-			P0 = load_data(AP0); // Load Pattern 0 register
-			P1 = load_data(AP1); // Load Pattern 1 register
-			if((control & S_S) != S_S){
-				for(uint8_t x = 0;x < 8; x++ ){
-					/*if(attr & 0x80 == 0){ // check if the vertical flip is valid and ajust pattern poiner
-						x_new = 7 - x;
-					}else{
-						x_new = x;
-					}*/
-
-					x_new = (attr & 0x40) != 0x40? x : 7 - x;
-
-					if((uint16_t)x_pos + x < 256 && y_pos + y < 240){
-						pixel_id = 0;
-						pixel_id += (P0 & (0x80 >> x_new)) != 0 ? 1 : 0;
-						pixel_id += (P1 & (0x80 >> x_new)) != 0 ? 2 : 0;
-						if(attr & 0x20 != 0)
-						{
-							if(pixel_id != 0 )
-							{
-								PCaddress = 0x3F10 + pixel_id + (4 * CP_set);
-								pixel = load_data(PCaddress);
-								screen_buffer[(x_pos + x) + (y_pos + y)*256] = pixel;
-							}
-						}else{
-							if(back_buffer[(x_pos + x) + (y_pos + y)*256] == 0 && pixel_id != 0)
-							{
-								PCaddress = 0x3F10 + pixel_id + (4 * CP_set);
-								pixel = load_data(PCaddress);
-								screen_buffer[(x_pos + x) + (y_pos + y)*256] = pixel;
-							}
-						}
-					}
-				}
+				vram_addr.coarse_y += 1;
 			}
 		}
-
-
 	}
 }
 
-void NES_PPU::Execute()  //only render the background "for now"
-{
-	if(x_axes == 0) {
-		y_axes += 1;
-		if(y_axes == 240)
-		{	
-			FG_render();
+void NES_PPU::TransferAddressX(){
+	if(((mask&BG_ON) == BG_ON) || ((mask&SP_ON) == SP_ON)){
+			vram_addr.nametable_x = tram_addr.nametable_x;
+			vram_addr.coarse_x    = tram_addr.coarse_x;
+	}
+}
+
+void NES_PPU::TransferAddressY(){
+	if(((mask&BG_ON) == BG_ON) || ((mask&SP_ON) == SP_ON)){
+			vram_addr.fine_y      = tram_addr.fine_y;
+			vram_addr.nametable_y = tram_addr.nametable_y;
+			vram_addr.coarse_y    = tram_addr.coarse_y;
+	}
+}
+
+void NES_PPU::LoadShifters(){
+	BG_low_shift 	= (BG_low_shift 	& 0xFF00) | BG_low;
+	BG_hight_shift 	= (BG_hight_shift 	& 0xFF00) | BG_hight;
+
+	ATbyte_shift_low  	= (ATbyte_shift_low 	& 0xFF00) | ((ATbyte & 0b01) ? 0xFF : 0x00);
+	ATbyte_shift_high  	= (ATbyte_shift_high 	& 0xFF00) | ((ATbyte & 0b10) ? 0xFF : 0x00);
+}
+
+void NES_PPU::UpdateShifters(){
+	if((mask&BG_ON) == BG_ON){
+		BG_low_shift	  <<= 1;
+		BG_hight_shift	  <<= 1;	
+		ATbyte_shift_low  <<= 1;
+		ATbyte_shift_high <<= 1;
+	}
+}
+ 
+void NES_PPU::Execute()
+{	
+	if(line_counter >= -1 && line_counter < 240){
+		if(line_counter == 0 && cycle_counter == 0)
+			cycle_counter = 1;
+
+		if(line_counter == -1 && cycle_counter == 0)
+			set_Status(V_Blank, 0);
+		
+		if((cycle_counter >= 2 && cycle_counter < 258) || (cycle_counter >= 321 && cycle_counter < 338)){
+			uint16_t bg_address = 0x0000;
+			UpdateShifters();
+			switch((cycle_counter-1)%8)
+			{
+				case 0:
+					//Load Nametable byte 
+					LoadShifters();
+
+					NTbyte = load_data(0x2000 | (vram_addr.reg & 0x0FFF));
+					break;
+				case 2:
+					//Load Attribute byte
+					ATbyte = load_data(0x23C0 | (vram_addr.reg & 0x0C00) | ((vram_addr.reg >> 4) & 0x38) | ((vram_addr.reg >> 2) & 0x07));
+					if (vram_addr.coarse_y & 0x02) ATbyte >>= 4;
+					if (vram_addr.coarse_x & 0x02) ATbyte >>= 2;
+					ATbyte &= 0x03;
+					break;
+				case 4:
+					//Load low Backgrond byte
+					BG_low = load_data(((control & Ctrl::B_P) << 8)
+										+ ((uint16_t)NTbyte << 4) 
+					                    + (vram_addr.fine_y));
+					break;
+				case 6:
+					//Load high Backgrond byte
+					BG_hight = load_data(((control & Ctrl::B_P) << 8)
+										+ ((uint16_t)NTbyte << 4) 
+					                    + (vram_addr.fine_y) + 8);
+					break;
+				case 7:
+					//incress hrizontal
+					inc_horizontal();
+					break;
+			}
+		}
+		if(cycle_counter == 256){
+			inc_vertical();
+		}
+		if(cycle_counter == 257){
+			LoadShifters();
+			TransferAddressX();
+		}
+		if(cycle_counter == 338 || cycle_counter == 340){
+			NTbyte = load_data(0x2000 | (vram_addr.reg & 0x0FFF));
+		}
+		if(line_counter == -1 && cycle_counter >= 280 && cycle_counter < 305){
+			TransferAddressY();
+		}
+	}
+	if(line_counter >= 241 && line_counter < 261){
+		if(line_counter == 241 && cycle_counter == 1){
 			set_Status(V_Blank, 1);
 			set_Interupt();
 			ready = 1;
 		}
 	}
+	/*if(line_counter == 241 && cycle_counter == 1){
+			set_Status(V_Blank, 1);
+			set_Interupt();
+			ready = 1;
+	}*/
+	//Rendering
 
-	// Chack control register
-	// Scroling
-	// Rendering
-	if(y_axes < 240){
-		BG_render();
-		//FG_render();
+	uint8_t pixel, palette;
+	uint16_t palette_address;
+
+	if((mask&BG_ON) == BG_ON){
+		
+		uint16_t bit_mux = 0x8000 >> fine_x;
+
+		uint8_t px0 = (BG_low_shift & bit_mux) > 0;
+		uint8_t px1 = (BG_hight_shift & bit_mux) > 0;
+		pixel = (px1 << 1) | px0 ;
+
+		uint8_t pl0 = (ATbyte_shift_low & bit_mux) != 0? 1:0;
+		uint8_t pl1 = (ATbyte_shift_high & bit_mux) != 0? 2:0;
+		palette = pl0 + pl1;
 	}
-	x_axes += 1;
 
-	
-}
+	palette_address = 0x3F00 | (palette << 2) | pixel;
+	pixel = load_data(palette_address);
 
-void NES_PPU::Scroling()
-{
 
-}
- 
-void NES_PPU::Rendering()
-{
-	
+	int x = cycle_counter-1;
+	int y = line_counter;
+	//std::cout << x << " " << y << "\n";
+	if(x+ 256*y < 256*240)
+		screen_buffer[x+ 256*y] = pixel;
+
+	cycle_counter += 1;
+	if (cycle_counter >= 341)
+	{
+		cycle_counter = 0;
+		line_counter++;
+		if (line_counter >= 261)
+		{
+			line_counter = -1;
+			//frame_complete = true;
+		}
+	}
+
 }

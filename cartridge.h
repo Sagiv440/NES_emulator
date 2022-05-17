@@ -10,6 +10,7 @@ private:
     uint8_t *PGR_memory;
     uint8_t *CHR_memory;
 
+	uint8_t mirror;
     uint8_t mapper_type;
     mapper  *Map;
 
@@ -53,6 +54,12 @@ private:
     void set_mapper(uint8_t type);
     uint8_t map_index();
 public:
+	enum Mirror
+	{
+		HORIZONTAL,
+		VERTICAL
+	};
+
     cartridge(const char* rom_file);
     ~cartridge();
 

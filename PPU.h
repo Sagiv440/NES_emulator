@@ -23,19 +23,20 @@ class NES_PPU : public module
 		B_P		= 0x10,	//		Background pattern table address (0: $0000; 1: $1000)
 		S_P		= 0x08,	//		Sprite pattern table address for 8x8 sprites (0: $0000; 1: $1000; ignored in 8x16 mode)
 		VRAM_A	= 0x04,	//		VRAM address increment per CPU read / write of PPUDATA (0: add 1, going across; 1: add 32, going down)
-		NN		= 0x03	//		Base nametable address (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
+		NTABLE_X		= 0x01,	//		Base nametable address (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
+		NTABLE_Y		= 0x02	//		Base nametable address (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
 	};
 	//register 1
 	enum Mask
 	{
-		B		= 0x80, // Emphasize blue
-		G		= 0x40, // Emphasize green (red on PAL/Dendy)
-		R		= 0x20, // Emphasize red (green on PAL/Dendy)
-		s		= 0x10, // 1: Show sprites
-		b		= 0x08, // 1: Show background
-		M		= 0x04, // 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
-		m		= 0x02, // 1: Show background in leftmost 8 pixels of screen, 0: Hide
-		Gr		= 0x01  // Greyscale (0: normal color, 1: produce a greyscale display)
+		BLU		= 0x80, // Emphasize blue
+		GRE		= 0x40, // Emphasize green (red on PAL/Dendy)
+		RED		= 0x20, // Emphasize red (green on PAL/Dendy)
+		SP_ON		= 0x10, // 1: Show sprites
+		BG_ON		= 0x08, // 1: Show background
+		MSP_ON		= 0x04, // 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
+		MBG_ON		= 0x02, // 1: Show background in leftmost 8 pixels of screen, 0: Hide
+		GR_SCLE		= 0x01  // Greyscale (0: normal color, 1: produce a greyscale display)
 	};
 	//register 2
 	enum Status
@@ -62,27 +63,57 @@ class NES_PPU : public module
 		SYNC = 0x10,
 	};
 
+	union vram_address
+	{
+		struct{
+			uint16_t coarse_x : 5;
+			uint16_t coarse_y : 5;
+			uint16_t nametable_x : 1;
+			uint16_t nametable_y : 1;
+			uint16_t fine_y : 3;
+			uint16_t unused : 1;
+		};
+		uint16_t reg;
+	};
+
+
 	BUS* bus;
 	uint8_t *CONTRL_BUS;
-	uint8_t w_1 = 0x00;
-	uint16_t address_buffer;
 	uint8_t ready = 0x00;
 	uint8_t control = 0x00;
 	uint8_t mask = 0x00;
 	uint8_t status = 0x00;
 	uint8_t OAM_address = 0x00;
-	uint16_t D_address = 0x0000;
-	uint8_t X_cam = 0x00;
-	uint8_t Y_cam = 0x00;
+
+	vram_address tram_addr;
+	vram_address vram_addr;
+	uint8_t fine_x;
+	uint8_t w_1 = 0x00;
+
+	uint16_t attribute_address 	= 0x0000;
+
+	uint8_t NTbyte;
+	uint8_t ATbyte;
+	uint8_t BG_low;
+	uint8_t BG_hight;
+
+	uint16_t BG_low_shift;
+	uint16_t BG_hight_shift;
+	uint16_t ATbyte_shift_low;
+	uint16_t ATbyte_shift_high;
+	uint8_t attribute_shift_registers 	= 0x0000;
+	
+	int16_t cycle_counter = 0;
+	int16_t line_counter = 0;
+
+	uint8_t ntable_test = 0;
 
 	uint8_t x_axes = 0x00;
 	uint8_t y_axes = 0xFF;
 	uint8_t OAM_memory[0x100] = { 0x00 };
 
 	uint8_t* screen_buffer; // Holld the color id for the final frame
-	uint8_t* back_buffer; 
-	uint8_t* frant_buffer;
-
+	
 	void save_data(uint16_t address, uint8_t &data);
 	uint8_t load_data(uint16_t address);
 
@@ -90,20 +121,21 @@ class NES_PPU : public module
 	void addressing_mode()
 	{
 		if ((control & VRAM_A) != 0)
-			D_address += 32;
+			vram_addr.coarse_y += 1;
 		else
-			D_address++;
+			vram_addr.coarse_x += 1;
 	}
 
-	
-
-	// Incharge of rendering the background frame
-	void BG_render();
-
-	//Incharge of rendering the Sprites in the farme
-	void FG_render();
-
 	void Print_Pallte();
+	void inc_horizontal();
+	void inc_vertical();
+	void LoadShifters();
+	void UpdateShifters();
+
+	void TransferAddressX();
+	void TransferAddressY();
+
+	void BG_render();
 	
 public:
 	void set_Ready();
@@ -115,8 +147,8 @@ public:
 
 	void Rest();
 	void Execute();
-	void Scroling();
-	void Rendering();
+
+
 
 	void set_bus(BUS* main_bus){bus = main_bus;}
 	void set_Interupt();

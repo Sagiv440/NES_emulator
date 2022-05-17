@@ -43,9 +43,13 @@ _deps
 *.out
 *.app
 
-build/*.nes
+*.nes
+*.json
 
 build
+SFML/*
 Release
+
 NES_Games
+
 [Bb][Uu][Ii][Ll][Dd]
