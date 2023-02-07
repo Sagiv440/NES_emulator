@@ -10,6 +10,7 @@ int main()
 		nes.On_Update();
 
     return 0;
+    Testing :)
 }*/
 #include <SFML/Graphics.hpp>
 
