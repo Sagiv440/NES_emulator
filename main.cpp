@@ -54,7 +54,7 @@ uint8_t Input()
 }
 
 
-int main()
+int Game()
 {
     uint8_t R ,G ,B ,A;
 
@@ -87,4 +87,46 @@ int main()
     }
 
     return 0;
+}
+
+int Debug()
+{
+    uint8_t color;
+    uint8_t R ,G ,B ,A;
+    uint8_t buffer[128*128] = {0x00};
+
+    sf::RenderWindow window(sf::VideoMode(128*4, 128*4), "SFML works!");
+    sf::RectangleShape shape(sf::Vector2f(4.f ,4.f));
+    shape.setFillColor(sf::Color::Green);
+    NES nes("color_test.nes");
+	nes.On_start();
+    nes.set_controller(0,*Input);
+    //nes.set_controller(1,*Input);
+    while (window.isOpen())
+    {
+        sf::Event event;
+        while (window.pollEvent(event))
+        {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+        nes.ppu.Get_Pallets(buffer, 0);
+        window.clear();
+        for(int y = 0 ; y < 128; y++)
+            for(int x = 0; x < 128 ;x++){
+                color = buffer[x + y*128];
+                nes.get_color(color*8, R, G, B, A);
+                shape.setPosition(sf::Vector2f(x * 4.f ,y * 4.f));
+                shape.setFillColor(sf::Color(R, G, B));
+                window.draw(shape);
+            }
+        //window.draw(shape);
+        window.display();
+    }
+
+    return 0;
+}
+int main()
+{
+    return Game();
 }

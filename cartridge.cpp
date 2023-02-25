@@ -8,7 +8,7 @@ void cartridge::set_mapper(uint8_t type)
     switch(type)
     {
     case 0:
-        Map = (mapper*)new mapper0(PGR_memory, CHR_memory, Header[4]);
+        Map = (mapper*)new mapper0(PGR_memory, CHR_memory, mirror, Header[4]);
         break;
     default:
         Map = NULL;
@@ -33,11 +33,14 @@ cartridge::cartridge(const char* rom_file)
     rf.read((char*) &Header, 16);
 
     PGR_memory = (uint8_t*)malloc(sizeof(uint8_t) * 0x4000 * Header[4]); // Allocating memory for the game rom
-    CHR_memory = (uint8_t*)malloc(sizeof(uint8_t) * 0x2000 * Header[5]); // Allocating memory for the graphics rom
+    if(Header[5] != 0)
+        CHR_memory = (uint8_t*)malloc(sizeof(uint8_t) * 0x2000 * Header[5]); // Allocating memory for the graphics rom
+    else
+        CHR_memory = (uint8_t*)malloc(sizeof(uint8_t) * 0x2000); // Allocating memory for the graphics rom
 
-    set_mapper(map_index()); //set the correct mapper;
     mirror = (Header[6] & 0x08) > 0? 1:0;
     mirror = (mirror << 1) | (Header[6] & 0x01);
+    set_mapper(map_index()); //set the correct mapper;
 
 
     if(Header[6] & 0x04){ // If trainer exsist load trainer to ram;

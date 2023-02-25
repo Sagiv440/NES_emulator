@@ -222,7 +222,7 @@ private:
 	mapper* map;
 	module* ppu;
 	module* IO;
-	uint8_t memory[0x0800] = {0x00}; // 2k ram
+	uint8_t memory[0x2000] = {0x00}; // 2k ram
 
 public:
 	void set_mapper(mapper* MP) {map = MP;};
@@ -288,7 +288,7 @@ class PPU_BUS : public BUS
 {
 private:
 	mapper* map;
-	uint8_t VRAM[0x0800] = {0x00}; // 2k ram
+	uint8_t VRAM[0x1000] = {0x00}; // 2k ram
 	uint8_t palette_ROM[0x0800] = {0x00}; // 2k ram
 
 	
@@ -303,11 +303,18 @@ public:
 		}
 		else if(address >= 0x2000 && address < 0x3000) //nametable ram
 		{
-			DATA_BUS = VRAM[0x07FF & address];
+			if(map->mirror > 1) //No Mirrors
+				DATA_BUS = VRAM[0x0FFF & address];
+
+			else if(map->mirror == 0) // Horizontal Mirror
+				DATA_BUS = VRAM[0x07FF & address];
+
+			else	// Vertical Mirror
+				DATA_BUS = VRAM[0x0DFF & address];
 		}
 		else if(address >= 0x3000 && address < 0x3F00) //Mirror
 		{
-			DATA_BUS = 0; //place holder
+			DATA_BUS = VRAM[0x07FF & address];
 		}
 		else if(address >= 0x3F00 && address < 0x4000) //Palette_Memory
 		{
@@ -326,11 +333,18 @@ public:
 		}
 		else if(address >= 0x2000 && address < 0x3000) //Nametable memory
 		{
-			 VRAM[0x07FF & address] = DATA_BUS;
+			if(map->mirror > 1) //No Mirrors
+				VRAM[0x0FFF & address] = DATA_BUS;
+
+			else if(map->mirror == 0) // Horizontal Mirror
+				VRAM[0x07FF & address] = DATA_BUS;
+
+			else	// Vertical Mirror
+				VRAM[0x0DFF & address] = DATA_BUS;
 		}
 		else if(address >= 0x3000 && address < 0x3F00) //Mirror
 		{
-			 //place holder
+			 VRAM[0x07FF & address] = DATA_BUS;
 		}
 		else if(address >= 0x3F00 && address < 0x4000) //IO registers
 		{

@@ -4,10 +4,10 @@ NES_PPU::NES_PPU(uint16_t top, uint16_t buttom)
 {
 	TOP_ADDRESS = top;
 	BUTTOM_ADDRESS = buttom;
-
+	
 	screen_buffer = (uint8_t*)malloc(sizeof(uint8_t) * 256 * 240);
 };
-NES_PPU::~NES_PPU() { delete(screen_buffer); };
+NES_PPU::~NES_PPU() { delete(screen_buffer);  delete(screen_buffer);};
 
 void NES_PPU::save_data(uint16_t address, uint8_t &data)
 {
@@ -308,6 +308,7 @@ void NES_PPU::Execute()
 	}
 	if(line_counter >= 241 && line_counter < 261){
 		if(line_counter == 241 && cycle_counter == 1){
+			SpriteRandarer();
 			set_Status(V_Blank, 1);
 			set_Interupt();
 			ready = 1;
@@ -337,14 +338,16 @@ void NES_PPU::Execute()
 	}
 
 	palette_address = 0x3F00 | (palette << 2) | pixel;
-	pixel = load_data(palette_address);
+	palette = load_data(palette_address);
 
 
 	int x = cycle_counter-1;
 	int y = line_counter;
 	//std::cout << x << " " << y << "\n";
-	if(x+ 256*y < 256*240)
-		screen_buffer[x+ 256*y] = pixel;
+	if(x+ 256*y < 256*240){
+		Pixel_Id_Buffer[x+ 256*y] = pixel;
+		screen_buffer[x+ 256*y] = palette;
+	}
 
 	cycle_counter += 1;
 	if (cycle_counter >= 341)
@@ -356,6 +359,68 @@ void NES_PPU::Execute()
 			line_counter = -1;
 			//frame_complete = true;
 		}
+	}
+}
+
+void NES_PPU::SpriteRandarer()
+{
+	uint8_t x_pos;
+	uint8_t y_pos;
+	uint8_t index;
+	uint8_t attribute;
+
+	uint8_t pixel, palette;
+	uint16_t palette_address;
+
+	uint8_t data1 = 0x00;
+	uint8_t data2 = 0x00;
+
+	uint16_t address = 0x0000;
+	uint16_t pattern = (control & S_P) != 0 ? 0x1000:0x0000;
+
+	for(int i = 0; i < 64; i++)
+	{
+		x_pos 		= OAM_memory[4*i];
+		index 		= OAM_memory[4*i+1];
+		attribute 	= OAM_memory[4*i+2];
+		y_pos 		= OAM_memory[4*i+3];
+
+		address = pattern | (uint16_t)x_pos<<8 | (uint16_t)y_pos<<4;
+		for(uint8_t h = 0; h < 8;h++)
+		{
+			data1 = load_data(address);
+			data2 = load_data(address+8);
+
+			for(int v = 0; v < 8;v++)
+			{
+				pixel = data1 & 1 + (data2 & 1)*2;
+				
+				palette_address = 0x3F10 | ((attribute&0x03) << 2) | pixel;
+				palette = load_data(palette_address);
+
+				if((x_pos + v + 256*(y_pos + h)) < 256*240){
+					if((attribute & 0x20) == 0)
+					{
+
+						if(palette != 0)
+						{
+							screen_buffer[x_pos + v + 256*(y_pos + h)] = palette;
+						}
+
+					}else{
+						if(Pixel_Id_Buffer[x_pos + v + 256*(y_pos + h)] == 0)
+						{
+							screen_buffer[x_pos + v + 256*(y_pos + h)] = palette;
+						}
+					}
+				}
+
+				data1 = data1>>1;
+				data2 = data2>>1;
+			}
+			address++;
+		}
+
 	}
 
 }

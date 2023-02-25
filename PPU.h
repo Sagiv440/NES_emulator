@@ -111,7 +111,8 @@ class NES_PPU : public module
 	uint8_t x_axes = 0x00;
 	uint8_t y_axes = 0xFF;
 	uint8_t OAM_memory[0x100] = { 0x00 };
-
+	
+	uint8_t Pixel_Id_Buffer[256*240] = {0x00}; // Holld the color id for the final frame
 	uint8_t* screen_buffer; // Holld the color id for the final frame
 	
 	void save_data(uint16_t address, uint8_t &data);
@@ -145,6 +146,8 @@ public:
 	NES_PPU(uint16_t top = 0x4000, uint16_t buttom = 0x2000);
 	~NES_PPU();
 
+	void SpriteRandarer();
+
 	void Rest();
 	void Execute();
 
@@ -157,6 +160,37 @@ public:
 	void receive_data(uint16_t* address, uint8_t& data);
 	void interrupt(uint8_t& contrl);
 
+// Debuging funciton
+	void Get_Pallets(uint8_t* buffer, uint8_t pallet)
+	{
+		uint16_t address = 0x0000;
+		uint16_t pattern = (pallet&0x01)*0x1000;
+		uint8_t data1 = 0x00;
+		uint8_t data2 = 0x00;
+		uint8_t bit = 0x00;
+		for(uint8_t y = 0; y < 0x10; y++)
+		{
+			for(uint8_t x = 0; x < 0x10; x++)
+			{
+				address = pattern | x<<0x8 | y<<0x4;
+				for(uint8_t h = 0; h < 8;h++)
+				{
+					
+					
+					data1 = load_data(address);
 
-	
+					data2 = load_data(address+8);
+
+					for(int v = 0; v < 8;v++)
+					{
+						bit = data1 & 1 + (data2 & 1)*2;
+						data1 = data1>>1;
+						data2 = data2>>1;
+						buffer[ x*8 + h + 128*(y*8 + v)] = bit;
+					}
+					address++;
+				}
+			}
+		}
+	}
 };

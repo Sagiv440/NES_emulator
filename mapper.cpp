@@ -3,7 +3,7 @@
 
 
 //Mapper 0 
-mapper0::mapper0(uint8_t *pgr, uint8_t *chr, uint8_t &Mem16):mapper(pgr,chr),Mem16_32(Mem16){}
+mapper0::mapper0(uint8_t *pgr, uint8_t *chr, uint8_t mirror, uint8_t &Mem16):mapper(pgr,chr,mirror),Mem16_32(Mem16){}
 
 uint16_t mapper0::address_adapter(uint16_t *address)
 {
@@ -45,7 +45,7 @@ void mapper0::ppu_save(uint16_t *address, uint8_t data)
 
 
 //Mapper1
-mapper1::mapper1(uint8_t *pgr, uint8_t *chr, uint8_t &Mem16):mapper(pgr,chr),Mem16_32(Mem16){}
+mapper1::mapper1(uint8_t *pgr, uint8_t *chr, uint8_t mirror, uint8_t &Mem16):mapper(pgr,chr, mirror),Mem16_32(Mem16){}
 
 uint16_t mapper1::address_adapter(uint16_t *address)
 {
