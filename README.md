@@ -4,7 +4,7 @@ Hello.
 
 This is my one take for an NES Emulator.   Inspired by the OLC Emulator Video Series  
 
-All the ocumentation to create this project were sourced form [**nesdev.org**](https://www.nesdev.org/wiki/Nesdev_Wiki)  **Thank you :)**
+All the documentation to create this project were sourced form [**nesdev.org**](https://www.nesdev.org/wiki/Nesdev_Wiki)  **Thank you :)**
 
 
 # Descriptions
