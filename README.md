@@ -51,3 +51,7 @@ while(true){
 
 ```
 
+  # Screen Shots
+![Image_1](https://github.com/Sagiv440/NES_emulator/blob/master/ScreenShots/Screenshot%20from%202023-01-29%2021-32-13.png?raw=true)
+![Image_2](https://github.com/Sagiv440/NES_emulator/blob/master/ScreenShots/Screenshot%20from%202023-01-29%2021-32-21.png?raw=true)
+
